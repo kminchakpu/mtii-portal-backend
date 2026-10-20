@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import type {
+  PoolConnection,
   ResultSetHeader,
   RowDataPacket,
-} from "mysql2";
+} from "mysql2/promise";
 import { db } from "@/lib/db/pool";
 import {
   generateSessionToken,
@@ -21,6 +22,11 @@ interface SessionRow extends RowDataPacket {
   revoked_at: Date | null;
 }
 
+type SessionExecutor = Pick<
+  PoolConnection,
+  "execute"
+>;
+
 export type CreatedSession = {
   token: string;
   expiresAt: Date;
@@ -37,14 +43,21 @@ export type StaffSession = {
 export async function createStaffSession(
   userId: number
 ): Promise<CreatedSession> {
-  const token = generateSessionToken();
-  const tokenHash = hashSessionToken(token);
+  const token =
+    generateSessionToken();
 
-  const { ttlHours } = getSessionConfig();
-  const expiresAt = getSessionExpiresAt(
-    new Date(),
-    ttlHours
-  );
+  const tokenHash =
+    hashSessionToken(token);
+
+  const {
+    ttlHours,
+  } = getSessionConfig();
+
+  const expiresAt =
+    getSessionExpiresAt(
+      new Date(),
+      ttlHours
+    );
 
   await db.execute<ResultSetHeader>(
     `
@@ -73,50 +86,63 @@ export async function createStaffSession(
 export async function findStaffSessionByToken(
   token: string
 ): Promise<StaffSession | null> {
-  const tokenHash = hashSessionToken(token);
+  const tokenHash =
+    hashSessionToken(token);
 
-  const [rows] = await db.execute<SessionRow[]>(
-    `
-      SELECT
-        s.id,
-        s.public_id,
-        s.user_id,
-        s.expires_at,
-        s.revoked_at
-      FROM sessions s
-      INNER JOIN users u
-        ON u.id = s.user_id
-      WHERE s.token_hash = ?
-        AND s.revoked_at IS NULL
-        AND s.expires_at > NOW()
-        AND u.is_active = TRUE
-      LIMIT 1
-    `,
-    [tokenHash]
-  );
+  const [rows] =
+    await db.execute<
+      SessionRow[]
+    >(
+      `
+        SELECT
+          s.id,
+          s.public_id,
+          s.user_id,
+          s.expires_at,
+          s.revoked_at
+        FROM sessions s
+        INNER JOIN users u
+          ON u.id = s.user_id
+        WHERE s.token_hash = ?
+          AND s.revoked_at IS NULL
+          AND s.expires_at > NOW()
+          AND u.is_active = TRUE
+        LIMIT 1
+      `,
+      [tokenHash]
+    );
 
-  const session = rows[0];
+  const session =
+    rows[0];
 
   if (!session) {
     return null;
   }
 
   return {
-    id: session.id,
-    publicId: session.public_id,
-    userId: session.user_id,
-    expiresAt: session.expires_at,
-    revokedAt: session.revoked_at,
+    id:
+      session.id,
+    publicId:
+      session.public_id,
+    userId:
+      session.user_id,
+    expiresAt:
+      session.expires_at,
+    revokedAt:
+      session.revoked_at,
   };
 }
 
 export async function revokeStaffSession(
   token: string
 ): Promise<boolean> {
-  const tokenHash = hashSessionToken(token);
+  const tokenHash =
+    hashSessionToken(token);
 
   const [result] =
-    await db.execute<ResultSetHeader>(
+    await db.execute<
+      ResultSetHeader
+    >(
       `
         UPDATE sessions
         SET revoked_at = NOW()
@@ -126,14 +152,19 @@ export async function revokeStaffSession(
       [tokenHash]
     );
 
-  return result.affectedRows > 0;
+  return (
+    result.affectedRows >
+    0
+  );
 }
 
 export async function revokeAllStaffSessions(
   userId: number
 ): Promise<number> {
   const [result] =
-    await db.execute<ResultSetHeader>(
+    await db.execute<
+      ResultSetHeader
+    >(
       `
         UPDATE sessions
         SET revoked_at = NOW()
@@ -141,6 +172,29 @@ export async function revokeAllStaffSessions(
           AND revoked_at IS NULL
       `,
       [userId]
+    );
+
+  return result.affectedRows;
+}
+
+export async function revokeSessionsForDepartment(
+  departmentId: number,
+  executor:
+    SessionExecutor = db
+): Promise<number> {
+  const [result] =
+    await executor.execute<
+      ResultSetHeader
+    >(
+      `
+        UPDATE sessions s
+        INNER JOIN users u
+          ON u.id = s.user_id
+        SET s.revoked_at = NOW()
+        WHERE u.department_id = ?
+          AND s.revoked_at IS NULL
+      `,
+      [departmentId]
     );
 
   return result.affectedRows;
