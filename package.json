@@ -12,7 +12,9 @@
     "typecheck": "tsc --noEmit",
     "db:check": "tsx scripts/check-database.ts",
     "db:migrate": "tsx scripts/migrate.ts",
-    "db:verify": "tsx scripts/verify-schema.ts"
+    "db:verify": "tsx scripts/verify-schema.ts",
+    "db:seed:rbac": "tsx scripts/seed-rbac.ts",
+    "db:verify:rbac": "tsx scripts/verify-rbac.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
