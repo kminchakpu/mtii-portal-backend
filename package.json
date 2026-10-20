@@ -18,7 +18,8 @@
     "seed:super-admin": "tsx scripts/seed-super-admin.ts",
     "db:verify:super-admin": "tsx scripts/verify-super-admin-schema.ts",
     "db:verify:super-admin-account": "tsx scripts/verify-super-admin.ts",
-    "db:verify:sessions": "tsx scripts/verify-sessions.ts"
+    "db:verify:sessions": "tsx scripts/verify-sessions.ts",
+    "db:verify:staff-auth": "tsx scripts/verify-staff-auth.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",
