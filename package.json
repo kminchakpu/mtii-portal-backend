@@ -14,7 +14,10 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "db:verify": "tsx scripts/verify-schema.ts",
     "db:seed:rbac": "tsx scripts/seed-rbac.ts",
-    "db:verify:rbac": "tsx scripts/verify-rbac.ts"
+    "db:verify:rbac": "tsx scripts/verify-rbac.ts",
+    "seed:super-admin": "tsx scripts/seed-super-admin.ts",
+    "db:verify:super-admin": "tsx scripts/verify-super-admin-schema.ts",
+    "db:verify:super-admin-account": "tsx scripts/verify-super-admin.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

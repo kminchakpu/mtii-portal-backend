@@ -36,6 +36,22 @@ expect(sql).toContain(
     }
   });
 
+  it("provides the fields required for Super Admin bootstrap", async () => {
+    const sql = await getFoundationMigration();
+    expect(sql).toContain("first_name");
+    expect(sql).toContain("last_name");
+    expect(sql).toContain("email");
+    expect(sql).toContain("password_hash");
+    expect(sql).toContain("password_changed_at");
+    expect(sql).toContain("department_id");
+    expect(sql).toContain("assigned_by_user_id");
+    expect(sql).toContain("actor_user_id");
+    expect(sql).toContain("entity_type");
+    expect(sql).toContain("entity_id");
+    expect(sql).toContain("new_values");
+    expect(sql).toContain("metadata");
+  });
+
   it("stores hashed session tokens and revocation information", async () => {
     const sql = await getFoundationMigration();
 
