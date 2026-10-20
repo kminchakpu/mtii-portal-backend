@@ -6,21 +6,33 @@ import {
   vi,
 } from "vitest";
 
-const findStaffSessionByToken = vi.fn();
-const execute = vi.fn();
+const getRequestAuthorization =
+  vi.fn();
+
+const dbExecute = vi.fn();
 
 vi.mock(
-  "@/lib/auth/session-repository",
-  () => ({
-    findStaffSessionByToken,
-  })
+  "@/lib/rbac/request-authorization",
+  async (importOriginal) => {
+    const actual =
+      await importOriginal<
+        typeof import(
+          "@/lib/rbac/request-authorization"
+        )
+      >();
+
+    return {
+      ...actual,
+      getRequestAuthorization,
+    };
+  }
 );
 
 vi.mock(
   "@/lib/db/pool",
   () => ({
     db: {
-      execute,
+      execute: dbExecute,
     },
   })
 );
@@ -30,110 +42,212 @@ describe("current staff route", () => {
     vi.clearAllMocks();
   });
 
-  it("rejects requests without a session cookie", async () => {
-    const { GET } = await import(
-      "@/app/api/staff/auth/me/route"
+  it("returns 401 for an unauthenticated request", async () => {
+    const {
+      UnauthenticatedError,
+    } = await import(
+      "@/lib/rbac/errors"
     );
+
+    getRequestAuthorization
+      .mockRejectedValue(
+        new UnauthenticatedError()
+      );
+
+    const { GET } =
+      await import(
+        "@/app/api/staff/auth/me/route"
+      );
 
     const request = new Request(
       "http://localhost/api/staff/auth/me"
     );
 
-    const response = await GET(request);
+    const response =
+      await GET(request);
 
-    expect(response.status).toBe(401);
+    expect(
+      response.status
+    ).toBe(401);
 
-    expect(await response.json()).toEqual({
+    await expect(
+      response.json()
+    ).resolves.toEqual({
       error: "Unauthenticated.",
     });
 
     expect(
-      findStaffSessionByToken
+      dbExecute
     ).not.toHaveBeenCalled();
   });
 
-  it("rejects an invalid session", async () => {
-    findStaffSessionByToken.mockResolvedValue(
-      null
-    );
+  it("returns the authenticated staff authorization profile", async () => {
+    getRequestAuthorization
+      .mockResolvedValue({
+        userId: 25,
+        publicId:
+          "staff-public-id",
+        departmentId: 2,
+        departmentCode:
+          "TRADE",
+        roles: [
+          "REVIEW_OFFICER",
+        ],
+        permissions: [
+          "APPLICATION_VIEW",
+          "APPLICATION_REVIEW",
+          "APPLICATION_RECOMMEND",
+        ],
+      });
 
-    const { GET } = await import(
-      "@/app/api/staff/auth/me/route"
-    );
-
-    const request = new Request(
-      "http://localhost/api/staff/auth/me",
-      {
-        headers: {
-          cookie:
-            "mtii_staff_session=invalid-token",
-        },
-      }
-    );
-
-    const response = await GET(request);
-
-    expect(response.status).toBe(401);
-
-    expect(
-      findStaffSessionByToken
-    ).toHaveBeenCalledWith(
-      "invalid-token"
-    );
-
-    expect(execute).not.toHaveBeenCalled();
-  });
-
-  it("returns the authenticated staff profile", async () => {
-    findStaffSessionByToken.mockResolvedValue({
-      id: 10,
-      publicId: "session-public-id",
-      userId: 1,
-      expiresAt: new Date(
-        "2026-10-21T12:00:00.000Z"
-      ),
-      revokedAt: null,
-    });
-
-    execute.mockResolvedValue([
+    dbExecute.mockResolvedValue([
       [
         {
-          public_id: "user-public-id",
-          first_name: "Kevin",
-          last_name: "Minchakpu",
-          email: "kevin@example.com",
-          department_code: "ADMIN",
+          first_name:
+            "Review",
+          last_name:
+            "Officer",
+          email:
+            "review@example.com",
         },
       ],
+    ]);
+
+    const { GET } =
+      await import(
+        "@/app/api/staff/auth/me/route"
+      );
+
+    const request = new Request(
+      "http://localhost/api/staff/auth/me"
+    );
+
+    const response =
+      await GET(request);
+
+    expect(
+      response.status
+    ).toBe(200);
+
+    await expect(
+      response.json()
+    ).resolves.toEqual({
+      user: {
+        publicId:
+          "staff-public-id",
+        firstName:
+          "Review",
+        lastName:
+          "Officer",
+        email:
+          "review@example.com",
+        departmentCode:
+          "TRADE",
+        roles: [
+          "REVIEW_OFFICER",
+        ],
+        permissions: [
+          "APPLICATION_VIEW",
+          "APPLICATION_REVIEW",
+          "APPLICATION_RECOMMEND",
+        ],
+      },
+    });
+
+    expect(
+      dbExecute
+    ).toHaveBeenCalledWith(
+      expect.stringContaining(
+        "WHERE id = ?"
+      ),
+      [25]
+    );
+  });
+
+  it("returns 401 if the authenticated user can no longer be loaded", async () => {
+    getRequestAuthorization
+      .mockResolvedValue({
+        userId: 25,
+        publicId:
+          "staff-public-id",
+        departmentId: 2,
+        departmentCode:
+          "TRADE",
+        roles: [
+          "REVIEW_OFFICER",
+        ],
+        permissions: [
+          "APPLICATION_VIEW",
+        ],
+      });
+
+    dbExecute.mockResolvedValue([
       [],
     ]);
 
-    const { GET } = await import(
-      "@/app/api/staff/auth/me/route"
-    );
+    const { GET } =
+      await import(
+        "@/app/api/staff/auth/me/route"
+      );
 
     const request = new Request(
-      "http://localhost/api/staff/auth/me",
-      {
-        headers: {
-          cookie:
-            "mtii_staff_session=valid-token",
-        },
-      }
+      "http://localhost/api/staff/auth/me"
     );
 
-    const response = await GET(request);
+    const response =
+      await GET(request);
 
-    expect(response.status).toBe(200);
+    expect(
+      response.status
+    ).toBe(401);
 
-    expect(await response.json()).toEqual({
-      user: {
-        publicId: "user-public-id",
-        firstName: "Kevin",
-        lastName: "Minchakpu",
-        email: "kevin@example.com",
-        departmentCode: "ADMIN",
-      },
+    await expect(
+      response.json()
+    ).resolves.toEqual({
+      error: "Unauthenticated.",
     });
+  });
+
+  it("returns 500 for an unexpected authorization failure", async () => {
+    getRequestAuthorization
+      .mockRejectedValue(
+        new Error(
+          "Database unavailable"
+        )
+      );
+
+    const consoleError = vi
+      .spyOn(
+        console,
+        "error"
+      )
+      .mockImplementation(
+        () => {}
+      );
+
+    const { GET } =
+      await import(
+        "@/app/api/staff/auth/me/route"
+      );
+
+    const request = new Request(
+      "http://localhost/api/staff/auth/me"
+    );
+
+    const response =
+      await GET(request);
+
+    expect(
+      response.status
+    ).toBe(500);
+
+    await expect(
+      response.json()
+    ).resolves.toEqual({
+      error:
+        "Unable to verify session.",
+    });
+
+    consoleError.mockRestore();
   });
 });

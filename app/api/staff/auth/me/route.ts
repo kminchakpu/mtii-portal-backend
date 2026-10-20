@@ -1,65 +1,32 @@
-import { NextResponse } from "next/server";
+import {
+  NextResponse,
+} from "next/server";
 import type {
   RowDataPacket,
 } from "mysql2";
 import { db } from "@/lib/db/pool";
 import {
-  getSessionConfig,
-} from "@/lib/auth/session-config";
+  getRequestAuthorization,
+} from "@/lib/rbac/request-authorization";
 import {
-  findStaffSessionByToken,
-} from "@/lib/auth/session-repository";
-import {
-  readRequestCookie,
-} from "@/lib/auth/request-cookie";
+  handleAuthorizationError,
+} from "@/lib/http/authorization-error";
 
 interface CurrentStaffRow
   extends RowDataPacket {
-  public_id: string;
   first_name: string;
   last_name: string;
   email: string;
-  department_code: string | null;
 }
 
 export async function GET(
   request: Request
 ) {
   try {
-    const { cookieName } =
-      getSessionConfig();
-
-    const token = readRequestCookie(
-      request,
-      cookieName
-    );
-
-    if (!token) {
-      return NextResponse.json(
-        {
-          error: "Unauthenticated.",
-        },
-        {
-          status: 401,
-        }
+    const context =
+      await getRequestAuthorization(
+        request
       );
-    }
-
-    const session =
-      await findStaffSessionByToken(
-        token
-      );
-
-    if (!session) {
-      return NextResponse.json(
-        {
-          error: "Unauthenticated.",
-        },
-        {
-          status: 401,
-        }
-      );
-    }
 
     const [rows] =
       await db.execute<
@@ -67,19 +34,15 @@ export async function GET(
       >(
         `
           SELECT
-            u.public_id,
-            u.first_name,
-            u.last_name,
-            u.email,
-            d.code AS department_code
-          FROM users u
-          LEFT JOIN departments d
-            ON d.id = u.department_id
-          WHERE u.id = ?
-            AND u.is_active = TRUE
+            first_name,
+            last_name,
+            email
+          FROM users
+          WHERE id = ?
+            AND is_active = TRUE
           LIMIT 1
         `,
-        [session.userId]
+        [context.userId]
       );
 
     const user = rows[0];
@@ -97,15 +60,32 @@ export async function GET(
 
     return NextResponse.json({
       user: {
-        publicId: user.public_id,
-        firstName: user.first_name,
-        lastName: user.last_name,
-        email: user.email,
+        publicId:
+          context.publicId,
+        firstName:
+          user.first_name,
+        lastName:
+          user.last_name,
+        email:
+          user.email,
         departmentCode:
-          user.department_code,
+          context.departmentCode,
+        roles:
+          context.roles,
+        permissions:
+          context.permissions,
       },
     });
   } catch (error) {
+    const authorizationResponse =
+      handleAuthorizationError(
+        error
+      );
+
+    if (authorizationResponse) {
+      return authorizationResponse;
+    }
+
     console.error(
       "Current staff lookup failed.",
       error
