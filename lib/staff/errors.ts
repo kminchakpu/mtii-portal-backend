@@ -41,3 +41,47 @@ export class StaffDepartmentInactiveError extends Error {
       "StaffDepartmentInactiveError";
   }
 }
+
+export class StaffRoleNotFoundError extends Error {
+  constructor(
+    message =
+      "Staff role not found."
+  ) {
+    super(message);
+    this.name =
+      "StaffRoleNotFoundError";
+  }
+}
+
+export class StaffRoleInactiveError extends Error {
+  constructor(
+    message =
+      "Staff role is inactive."
+  ) {
+    super(message);
+    this.name =
+      "StaffRoleInactiveError";
+  }
+}
+
+export class StaffRoleAlreadyAssignedError extends Error {
+  constructor(
+    message =
+      "Staff role is already assigned to this user."
+  ) {
+    super(message);
+    this.name =
+      "StaffRoleAlreadyAssignedError";
+  }
+}
+
+export class StaffRoleNotAssignedError extends Error {
+  constructor(
+    message =
+      "Staff role is not assigned to this user."
+  ) {
+    super(message);
+    this.name =
+      "StaffRoleNotAssignedError";
+  }
+}
