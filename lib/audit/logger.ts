@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import type {
   PoolConnection,
   ResultSetHeader,
@@ -24,9 +25,13 @@ export async function writeAuditLog(
   input: AuditLogInput,
   executor: AuditExecutor = db
 ): Promise<void> {
+  const publicId =
+    randomUUID();
+
   await executor.execute<ResultSetHeader>(
     `
       INSERT INTO audit_logs (
+        public_id,
         actor_user_id,
         department_id,
         action,
@@ -36,23 +41,33 @@ export async function writeAuditLog(
         new_values,
         metadata
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
     [
+      publicId,
       input.actorUserId,
       input.departmentId ?? null,
       input.action,
       input.entityType,
       input.entityId ?? null,
-      input.previousValues === undefined
+      input.previousValues ===
+      undefined
         ? null
-        : JSON.stringify(input.previousValues),
-      input.newValues === undefined
+        : JSON.stringify(
+            input.previousValues
+          ),
+      input.newValues ===
+      undefined
         ? null
-        : JSON.stringify(input.newValues),
-      input.metadata === undefined
+        : JSON.stringify(
+            input.newValues
+          ),
+      input.metadata ===
+      undefined
         ? null
-        : JSON.stringify(input.metadata),
+        : JSON.stringify(
+            input.metadata
+          ),
     ]
   );
 }
