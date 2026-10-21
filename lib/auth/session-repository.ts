@@ -159,10 +159,12 @@ export async function revokeStaffSession(
 }
 
 export async function revokeAllStaffSessions(
-  userId: number
+  userId: number,
+  executor:
+    SessionExecutor = db
 ): Promise<number> {
   const [result] =
-    await db.execute<
+    await executor.execute<
       ResultSetHeader
     >(
       `
