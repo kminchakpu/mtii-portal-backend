@@ -2,6 +2,12 @@ import type {
   Metadata,
 } from "next";
 import Link from "next/link";
+import {
+  requireCurrentStaff,
+} from "@/lib/staff-ui/staff-access";
+import {
+  createStaffServerRequest,
+} from "@/lib/staff-ui/staff-server-request";
 
 export const metadata: Metadata = {
   title:
@@ -16,22 +22,46 @@ const administrationAreas = [
     description:
       "View and manage ministry departments and their operational status.",
     href: "/staff/departments",
+    permission:
+      "DEPARTMENT_VIEW",
   },
   {
     title: "Staff Accounts",
     description:
       "Manage authorized staff accounts, access, roles, and departmental assignments.",
     href: "/staff/users",
+    permission:
+      "USER_VIEW",
   },
   {
     title: "Audit Logs",
     description:
       "Review recorded administrative and security activities across the staff system.",
     href: "/staff/audit-logs",
+    permission:
+      "AUDIT_VIEW",
   },
-];
+] as const;
 
-export default function StaffDashboardPage() {
+export default async function StaffDashboardPage() {
+  const request =
+    await createStaffServerRequest(
+      "/staff/dashboard"
+    );
+
+  const staff =
+    await requireCurrentStaff(
+      request
+    );
+
+  const availableAdministrationAreas =
+    administrationAreas.filter(
+      (area) =>
+        staff.permissions.includes(
+          area.permission
+        )
+    );
+
   return (
     <div className="space-y-8">
       <section>
@@ -73,48 +103,64 @@ export default function StaffDashboardPage() {
           </p>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {administrationAreas.map(
-            (area) => (
-              <article
-                key={
-                  area.href
-                }
-                className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
-              >
-                <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-[#071d2b] text-sm font-bold text-[#ffb000]">
-                  MTII
-                </div>
-
-                <h3 className="text-lg font-bold text-[#071d2b]">
-                  {area.title}
-                </h3>
-
-                <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
-                  {
-                    area.description
-                  }
-                </p>
-
-                <Link
-                  href={
+        {availableAdministrationAreas.length >
+        0 ? (
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {availableAdministrationAreas.map(
+              (area) => (
+                <article
+                  key={
                     area.href
                   }
-                  className="mt-6 inline-flex items-center font-semibold text-[#8a5c00] transition hover:text-[#071d2b]"
+                  className="flex flex-col rounded-xl border border-slate-200 bg-white p-6 shadow-sm"
                 >
-                  Open{" "}
-                  {area.title}
-                  <span
-                    aria-hidden="true"
-                    className="ml-2"
+                  <div className="mb-5 flex h-11 w-11 items-center justify-center rounded-lg bg-[#071d2b] text-sm font-bold text-[#ffb000]">
+                    MTII
+                  </div>
+
+                  <h3 className="text-lg font-bold text-[#071d2b]">
+                    {
+                      area.title
+                    }
+                  </h3>
+
+                  <p className="mt-2 flex-1 text-sm leading-6 text-slate-600">
+                    {
+                      area.description
+                    }
+                  </p>
+
+                  <Link
+                    href={
+                      area.href
+                    }
+                    className="mt-6 inline-flex items-center font-semibold text-[#8a5c00] transition hover:text-[#071d2b]"
                   >
-                    →
-                  </span>
-                </Link>
-              </article>
-            )
-          )}
-        </div>
+                    Open{" "}
+                    {
+                      area.title
+                    }
+                    <span
+                      aria-hidden="true"
+                      className="ml-2"
+                    >
+                      →
+                    </span>
+                  </Link>
+                </article>
+              )
+            )}
+          </div>
+        ) : (
+          <div className="rounded-xl border border-slate-200 bg-white p-5">
+            <p className="text-sm leading-6 text-slate-600">
+              No Phase 1
+              administration tools
+              are available for your
+              current permissions.
+            </p>
+          </div>
+        )}
       </section>
 
       <section className="rounded-xl border border-[#ffb000]/30 bg-[#ffb000]/10 p-5">
