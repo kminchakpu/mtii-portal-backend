@@ -6,6 +6,10 @@ import {
   handleAuthorizationError,
 } from "@/lib/http/authorization-error";
 import {
+  enforceStaffRequestOrigin,
+  StaffCrossSiteRequestError,
+} from "@/lib/http/staff-request-security";
+import {
   removeRoleFromStaffUser,
 } from "@/lib/staff/staff-role-service";
 import {
@@ -46,6 +50,10 @@ export async function DELETE(
   context: RouteContext
 ) {
   try {
+    enforceStaffRequestOrigin(
+      request
+    );
+
     const authorization =
       await getRequestAuthorization(
         request
@@ -75,6 +83,21 @@ export async function DELETE(
       }
     );
   } catch (error) {
+    if (
+      error instanceof
+      StaffCrossSiteRequestError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     const authorizationResponse =
       handleAuthorizationError(
         error

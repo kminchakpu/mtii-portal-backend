@@ -103,6 +103,48 @@ describe("staff logout route", () => {
     );
   });
 
+  it("rejects a cross-site request before session lookup or revocation", async () => {
+    const { POST } = await import(
+      "@/app/api/staff/auth/logout/route"
+    );
+
+    const request = new Request(
+      "http://localhost/api/staff/auth/logout",
+      {
+        method: "POST",
+        headers: {
+          cookie:
+            "mtii_staff_session=opaque-token",
+          Origin:
+            "https://attacker.example.com",
+          "Sec-Fetch-Site":
+            "cross-site",
+        },
+      }
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(403);
+
+    expect(await response.json()).toEqual({
+      error:
+        "Cross-site request forbidden.",
+    });
+
+    expect(
+      findStaffSessionByToken
+    ).not.toHaveBeenCalled();
+
+    expect(
+      revokeStaffSession
+    ).not.toHaveBeenCalled();
+
+    expect(
+      writeAuditLog
+    ).not.toHaveBeenCalled();
+  });
+
   it("succeeds when no session cookie exists", async () => {
     const { POST } = await import(
       "@/app/api/staff/auth/logout/route"

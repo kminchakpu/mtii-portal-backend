@@ -110,6 +110,28 @@ function createRequest(
   );
 }
 
+function createCrossSiteRequest(
+  body: unknown
+) {
+  return new Request(
+    "http://localhost/api/staff/users",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/json",
+        Origin:
+          "https://attacker.example.com",
+        "Sec-Fetch-Site":
+          "cross-site",
+      },
+      body: JSON.stringify(
+        body
+      ),
+    }
+  );
+}
+
 function createMalformedRequest() {
   return new Request(
     "http://localhost/api/staff/users",
@@ -289,6 +311,50 @@ describe(
             null,
         })
       );
+    });
+
+    it("rejects a cross-site request before authentication or account creation", async () => {
+      const {
+        POST,
+      } = await import(
+        "@/app/api/staff/users/route"
+      );
+
+      const response =
+        await POST(
+          createCrossSiteRequest({
+            firstName:
+              "Amina",
+            lastName:
+              "Ibrahim",
+            email:
+              "amina@example.com",
+            password:
+              "StrongPassword123!",
+            departmentPublicId:
+              "11111111-1111-4111-8111-111111111111",
+          })
+        );
+
+      const body =
+        await response.json();
+
+      expect(
+        response.status
+      ).toBe(403);
+
+      expect(body).toEqual({
+        error:
+          "Cross-site request forbidden.",
+      });
+
+      expect(
+        getRequestAuthorization
+      ).not.toHaveBeenCalled();
+
+      expect(
+        createStaffAccount
+      ).not.toHaveBeenCalled();
     });
 
     it("returns 400 for malformed JSON", async () => {

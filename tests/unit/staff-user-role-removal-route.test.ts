@@ -89,6 +89,21 @@ function createRequest() {
   );
 }
 
+function createCrossSiteRequest() {
+  return new Request(
+    `http://localhost/api/staff/users/${userPublicId}/roles/${role.publicId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Origin:
+          "https://attacker.example.com",
+        "Sec-Fetch-Site":
+          "cross-site",
+      },
+    }
+  );
+}
+
 function createContext(
   overrides?: {
     publicId?: string;
@@ -159,6 +174,33 @@ describe(
             role.updatedAt.toISOString(),
         },
       });
+    });
+
+    it("rejects a cross-site request before authentication or role removal", async () => {
+      const response =
+        await DELETE(
+          createCrossSiteRequest(),
+          createContext()
+        );
+
+      expect(
+        response.status
+      ).toBe(403);
+
+      await expect(
+        response.json()
+      ).resolves.toEqual({
+        error:
+          "Cross-site request forbidden.",
+      });
+
+      expect(
+        mocks.getRequestAuthorization
+      ).not.toHaveBeenCalled();
+
+      expect(
+        mocks.removeRoleFromStaffUser
+      ).not.toHaveBeenCalled();
     });
 
     it("passes the authorization context and public IDs to the service", async () => {

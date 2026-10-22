@@ -14,6 +14,10 @@ import {
 import {
   writeAuditLog,
 } from "@/lib/audit/logger";
+import {
+  enforceStaffRequestOrigin,
+  StaffCrossSiteRequestError,
+} from "@/lib/http/staff-request-security";
 
 function getAppEnvironment(): AppEnvironment {
   if (process.env.NODE_ENV === "development") {
@@ -31,6 +35,10 @@ export async function POST(
   request: Request
 ) {
   try {
+    enforceStaffRequestOrigin(
+      request
+    );
+
     const body = await request.json();
 
     const result = await authenticateStaff(
@@ -79,6 +87,21 @@ export async function POST(
 
     return response;
   } catch (error) {
+    if (
+      error instanceof
+      StaffCrossSiteRequestError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     if (
       error instanceof
       InvalidStaffCredentialsError

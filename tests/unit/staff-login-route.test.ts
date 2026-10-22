@@ -113,6 +113,47 @@ describe("staff login route", () => {
     });
   });
 
+  it("rejects a cross-site request before authentication", async () => {
+    const { POST } = await import(
+      "@/app/api/staff/auth/login/route"
+    );
+
+    const request = new Request(
+      "http://localhost/api/staff/auth/login",
+      {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          Origin:
+            "https://attacker.example.com",
+          "Sec-Fetch-Site":
+            "cross-site",
+        },
+        body: JSON.stringify({
+          email: "kevin@example.com",
+          password: "ValidPassword123!",
+        }),
+      }
+    );
+
+    const response = await POST(request);
+
+    expect(response.status).toBe(403);
+
+    expect(await response.json()).toEqual({
+      error:
+        "Cross-site request forbidden.",
+    });
+
+    expect(
+      authenticateStaff
+    ).not.toHaveBeenCalled();
+
+    expect(
+      writeAuditLog
+    ).not.toHaveBeenCalled();
+  });
+
   it("rejects invalid credentials", async () => {
     const {
       InvalidStaffCredentialsError,

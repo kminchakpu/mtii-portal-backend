@@ -98,6 +98,27 @@ function createRequest(
   );
 }
 
+function createCrossSiteRequest(
+  body: unknown
+) {
+  return new Request(
+    `http://localhost/api/staff/users/${userPublicId}/roles`,
+    {
+      method: "POST",
+      headers: {
+        "content-type":
+          "application/json",
+        Origin:
+          "https://attacker.example.com",
+        "Sec-Fetch-Site":
+          "cross-site",
+      },
+      body:
+        JSON.stringify(body),
+    }
+  );
+}
+
 function createContext() {
   return {
     params:
@@ -176,6 +197,36 @@ describe(
         userPublicId,
         role.publicId
       );
+    });
+
+    it("rejects a cross-site request before authentication or role assignment", async () => {
+      const response =
+        await POST(
+          createCrossSiteRequest({
+            rolePublicId:
+              role.publicId,
+          }),
+          createContext()
+        );
+
+      expect(
+        response.status
+      ).toBe(403);
+
+      await expect(
+        response.json()
+      ).resolves.toEqual({
+        error:
+          "Cross-site request forbidden.",
+      });
+
+      expect(
+        mocks.getRequestAuthorization
+      ).not.toHaveBeenCalled();
+
+      expect(
+        mocks.assignRoleToStaffUser
+      ).not.toHaveBeenCalled();
     });
 
     it("does not expose the internal role ID", async () => {
