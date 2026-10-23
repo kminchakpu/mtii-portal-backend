@@ -1,23 +1,9 @@
 import {
   headers,
 } from "next/headers";
-
-const DEFAULT_APP_URL =
-  "http://localhost:3000";
-
-function getAppUrl(): string {
-  const configuredUrl =
-    process.env.APP_URL?.trim();
-
-  if (!configuredUrl) {
-    return DEFAULT_APP_URL;
-  }
-
-  return configuredUrl.replace(
-    /\/+$/,
-    ""
-  );
-}
+import {
+  getAppUrl,
+} from "@/lib/config/app-url";
 
 function validateStaffPath(
   pathname: string

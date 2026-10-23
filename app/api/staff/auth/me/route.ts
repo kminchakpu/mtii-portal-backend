@@ -1,4 +1,7 @@
 import {
+  unstable_rethrow,
+} from "next/navigation";
+import {
   NextResponse,
 } from "next/server";
 import type {
@@ -18,6 +21,8 @@ interface CurrentStaffRow
   last_name: string;
   email: string;
 }
+
+export const instant = false;
 
 export async function GET(
   request: Request
@@ -77,6 +82,8 @@ export async function GET(
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
+
     const authorizationResponse =
       handleAuthorizationError(
         error

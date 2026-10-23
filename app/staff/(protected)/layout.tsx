@@ -23,6 +23,8 @@ type StaffProtectedLayoutProps = {
   children: ReactNode;
 };
 
+export const instant = false;
+
 export default async function StaffProtectedLayout({
   children,
 }: StaffProtectedLayoutProps) {
