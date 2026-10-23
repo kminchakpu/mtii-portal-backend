@@ -1,4 +1,5 @@
 import type {
+  PoolConnection,
   ResultSetHeader,
   RowDataPacket,
 } from "mysql2/promise";
@@ -9,28 +10,21 @@ import {
   handleApplicantDatabaseError,
 } from "@/lib/applicant-auth/database-error";
 
-type ApplicantExecutor = {
-  execute<T>(
-    sql: string,
-    values?: unknown[]
-  ): Promise<[T, unknown]>;
-};
-
-type ApplicantRow =
-  RowDataPacket & {
-    id: number;
-    public_id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    password_hash: string;
-    email_verified_at:
-      Date | null;
-    is_active:
-      number | boolean;
-    created_at: Date;
-    updated_at: Date;
-  };
+interface ApplicantRow
+  extends RowDataPacket {
+  id: number;
+  public_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  password_hash: string;
+  email_verified_at:
+    Date | null;
+  is_active:
+    number | boolean;
+  created_at: Date;
+  updated_at: Date;
+}
 
 export type Applicant = {
   id: number;
@@ -53,6 +47,11 @@ export type CreateApplicantRecord = {
   email: string;
   passwordHash: string;
 };
+
+type ApplicantExecutor = Pick<
+  PoolConnection,
+  "execute"
+>;
 
 function mapApplicant(
   row: ApplicantRow
