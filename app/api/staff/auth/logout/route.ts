@@ -16,6 +16,9 @@ import {
   enforceStaffRequestOrigin,
   StaffCrossSiteRequestError,
 } from "@/lib/http/staff-request-security";
+import {
+  logServerError,
+} from "@/lib/security/server-error-logger";
 
 export async function POST(
   request: Request
@@ -97,7 +100,7 @@ export async function POST(
       );
     }
 
-    console.error(
+    logServerError(
       "Staff logout failed.",
       error
     );

@@ -26,6 +26,9 @@ import {
   enforceStaffRequestOrigin,
   StaffCrossSiteRequestError,
 } from "@/lib/http/staff-request-security";
+import {
+  logServerError,
+} from "@/lib/security/server-error-logger";
 
 function getAppEnvironment(): AppEnvironment {
   if (process.env.NODE_ENV === "development") {
@@ -196,7 +199,7 @@ export async function POST(
         } catch (
           rateLimitError
         ) {
-          console.error(
+          logServerError(
             "Unable to record failed staff login attempt.",
             rateLimitError
           );
@@ -238,7 +241,7 @@ export async function POST(
       );
     }
 
-    console.error(
+    logServerError(
       "Staff login failed.",
       error
     );

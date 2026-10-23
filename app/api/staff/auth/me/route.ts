@@ -14,6 +14,9 @@ import {
 import {
   handleAuthorizationError,
 } from "@/lib/http/authorization-error";
+import {
+  logServerError,
+} from "@/lib/security/server-error-logger";
 
 interface CurrentStaffRow
   extends RowDataPacket {
@@ -93,7 +96,7 @@ export async function GET(
       return authorizationResponse;
     }
 
-    console.error(
+    logServerError(
       "Current staff lookup failed.",
       error
     );
