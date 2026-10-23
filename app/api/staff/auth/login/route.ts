@@ -12,6 +12,14 @@ import {
   type AppEnvironment,
 } from "@/lib/auth/session-cookie";
 import {
+  createStaffLoginRateLimitKey,
+} from "@/lib/auth/staff-login-rate-limit-key";
+import {
+  clearStaffLoginFailures,
+  isStaffLoginBlocked,
+  recordFailedStaffLogin,
+} from "@/lib/auth/staff-login-rate-limit-service";
+import {
   writeAuditLog,
 } from "@/lib/audit/logger";
 import {
@@ -31,50 +39,124 @@ function getAppEnvironment(): AppEnvironment {
   return "production";
 }
 
+function getLoginEmail(
+  body: unknown
+): string | null {
+  if (
+    typeof body !== "object" ||
+    body === null
+  ) {
+    return null;
+  }
+
+  if (
+    !("email" in body) ||
+    typeof body.email !== "string"
+  ) {
+    return null;
+  }
+
+  return body.email;
+}
+
 export async function POST(
   request: Request
 ) {
+  let rateLimitKey:
+    | string
+    | null = null;
+
   try {
     enforceStaffRequestOrigin(
       request
     );
 
-    const body = await request.json();
+    const body: unknown =
+      await request.json();
 
-    const result = await authenticateStaff(
-      body
-    );
+    const email =
+      getLoginEmail(body);
+
+    if (email !== null) {
+      rateLimitKey =
+        createStaffLoginRateLimitKey(
+          request,
+          email
+        );
+
+      const blockStatus =
+        await isStaffLoginBlocked(
+          rateLimitKey
+        );
+
+      if (blockStatus.blocked) {
+        return NextResponse.json(
+          {
+            error:
+              "Too many login attempts. Please try again later.",
+          },
+          {
+            status: 429,
+            headers: {
+              "Retry-After":
+                String(
+                  blockStatus.retryAfterSeconds
+                ),
+            },
+          }
+        );
+      }
+    }
+
+    const result =
+      await authenticateStaff(
+        body
+      );
+
+    if (rateLimitKey) {
+      await clearStaffLoginFailures(
+        rateLimitKey
+      );
+    }
 
     await writeAuditLog({
-      actorUserId: result.user.id,
+      actorUserId:
+        result.user.id,
       departmentId:
         result.user.departmentId,
       action: "STAFF_LOGIN",
       entityType: "USER",
-      entityId: result.user.publicId,
+      entityId:
+        result.user.publicId,
       metadata: {
         source: "staff-auth",
       },
     });
 
-    const response = NextResponse.json(
-      {
-        user: {
-          publicId: result.user.publicId,
-          firstName: result.user.firstName,
-          lastName: result.user.lastName,
-          email: result.user.email,
-          departmentCode:
-            result.user.departmentCode,
+    const response =
+      NextResponse.json(
+        {
+          user: {
+            publicId:
+              result.user.publicId,
+            firstName:
+              result.user.firstName,
+            lastName:
+              result.user.lastName,
+            email:
+              result.user.email,
+            departmentCode:
+              result.user.departmentCode,
+          },
         },
-      },
-      {
-        status: 200,
-      }
-    );
+        {
+          status: 200,
+        }
+      );
 
-    const { cookieName } =
-      getSessionConfig();
+    const {
+      cookieName,
+    } = getSessionConfig();
 
     response.cookies.set(
       cookieName,
@@ -106,6 +188,21 @@ export async function POST(
       error instanceof
       InvalidStaffCredentialsError
     ) {
+      if (rateLimitKey) {
+        try {
+          await recordFailedStaffLogin(
+            rateLimitKey
+          );
+        } catch (
+          rateLimitError
+        ) {
+          console.error(
+            "Unable to record failed staff login attempt.",
+            rateLimitError
+          );
+        }
+      }
+
       return NextResponse.json(
         {
           error:
