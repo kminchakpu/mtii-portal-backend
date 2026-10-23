@@ -12,11 +12,22 @@ import {
 import {
   writeAuditLog,
 } from "@/lib/audit/logger";
+import {
+  enforceStaffRequestOrigin,
+  StaffCrossSiteRequestError,
+} from "@/lib/http/staff-request-security";
+import {
+  logServerError,
+} from "@/lib/security/server-error-logger";
 
 export async function POST(
   request: Request
 ) {
   try {
+    enforceStaffRequestOrigin(
+      request
+    );
+
     const { cookieName } =
       getSessionConfig();
 
@@ -74,7 +85,22 @@ export async function POST(
 
     return response;
   } catch (error) {
-    console.error(
+    if (
+      error instanceof
+      StaffCrossSiteRequestError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
+    logServerError(
       "Staff logout failed.",
       error
     );

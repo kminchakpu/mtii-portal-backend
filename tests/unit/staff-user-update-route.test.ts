@@ -135,6 +135,26 @@ function createRequest(
   );
 }
 
+function createCrossSiteRequest(
+  body: unknown
+) {
+  return new Request(
+    `http://localhost/api/staff/users/${publicId}`,
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type":
+          "application/json",
+        Origin:
+          "https://attacker.example.com",
+        "Sec-Fetch-Site":
+          "cross-site",
+      },
+      body: JSON.stringify(body),
+    }
+  );
+}
+
 describe(
   "PATCH /api/staff/users/[publicId]",
   () => {
@@ -214,6 +234,40 @@ describe(
             "maryam@example.com",
         }
       );
+    });
+
+    it("rejects a cross-site request before authentication or staff account update", async () => {
+      const response =
+        await PATCH(
+          createCrossSiteRequest({
+            firstName:
+              "Maryam",
+          }),
+          createContext()
+        );
+
+      await expect(
+        response.json()
+      ).resolves.toEqual({
+        error:
+          "Cross-site request forbidden.",
+      });
+
+      expect(
+        response.status
+      ).toBe(403);
+
+      expect(
+        mocks.getRequestAuthorization
+      ).not.toHaveBeenCalled();
+
+      expect(
+        mocks.findStaffUserByPublicId
+      ).not.toHaveBeenCalled();
+
+      expect(
+        mocks.updateStaffAccount
+      ).not.toHaveBeenCalled();
     });
 
     it("normalizes the email before updating the staff account", async () => {

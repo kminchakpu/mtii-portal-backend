@@ -162,6 +162,29 @@ function createRequest(
   );
 }
 
+function createCrossSiteRequest(
+  body: unknown
+) {
+  return new Request(
+    "http://localhost/api/staff/departments/trade-public-id",
+    {
+      method: "PATCH",
+      headers: {
+        "Content-Type":
+          "application/json",
+        Origin:
+          "https://attacker.example.com",
+        "Sec-Fetch-Site":
+          "cross-site",
+      },
+      body:
+        JSON.stringify(
+          body
+        ),
+    }
+  );
+}
+
 function createContext() {
   return {
     params:
@@ -345,6 +368,67 @@ describe(
       expect(
         body.department.id
       ).toBeUndefined();
+    });
+
+    it("rejects a cross-site request before authentication or department update", async () => {
+      const {
+        PATCH,
+      } = await import(
+        "@/app/api/staff/departments/[publicId]/route"
+      );
+
+      const response =
+        await PATCH(
+          createCrossSiteRequest({
+            name:
+              "New Department Name",
+          }),
+          createContext()
+        );
+
+      const body =
+        await response.json();
+
+      expect(
+        response.status
+      ).toBe(403);
+
+      expect(body).toEqual({
+        error:
+          "Cross-site request forbidden.",
+      });
+
+      expect(
+        getRequestAuthorization
+      ).not.toHaveBeenCalled();
+
+      expect(
+        requirePermission
+      ).not.toHaveBeenCalled();
+
+      expect(
+        requireDepartmentAccess
+      ).not.toHaveBeenCalled();
+
+      expect(
+        withTransaction
+      ).not.toHaveBeenCalled();
+
+      expect(
+        findDepartmentByPublicId
+      ).not.toHaveBeenCalled();
+
+      expect(
+        updateDepartment
+      ).not.toHaveBeenCalled();
+
+      expect(
+        revokeSessionsForDepartment
+      ).not.toHaveBeenCalled();
+
+      expect(
+        writeAuditLog
+      ).not.toHaveBeenCalled();
     });
 
     it("revokes department staff sessions when an active department is deactivated", async () => {

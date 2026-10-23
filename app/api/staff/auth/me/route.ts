@@ -1,4 +1,7 @@
 import {
+  unstable_rethrow,
+} from "next/navigation";
+import {
   NextResponse,
 } from "next/server";
 import type {
@@ -11,6 +14,9 @@ import {
 import {
   handleAuthorizationError,
 } from "@/lib/http/authorization-error";
+import {
+  logServerError,
+} from "@/lib/security/server-error-logger";
 
 interface CurrentStaffRow
   extends RowDataPacket {
@@ -18,6 +24,8 @@ interface CurrentStaffRow
   last_name: string;
   email: string;
 }
+
+export const instant = false;
 
 export async function GET(
   request: Request
@@ -77,6 +85,8 @@ export async function GET(
       },
     });
   } catch (error) {
+    unstable_rethrow(error);
+
     const authorizationResponse =
       handleAuthorizationError(
         error
@@ -86,7 +96,7 @@ export async function GET(
       return authorizationResponse;
     }
 
-    console.error(
+    logServerError(
       "Current staff lookup failed.",
       error
     );

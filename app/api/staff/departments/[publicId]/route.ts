@@ -20,6 +20,10 @@ import {
   handleAuthorizationError,
 } from "@/lib/http/authorization-error";
 import {
+  enforceStaffRequestOrigin,
+  StaffCrossSiteRequestError,
+} from "@/lib/http/staff-request-security";
+import {
   revokeSessionsForDepartment,
 } from "@/lib/auth/session-repository";
 import {
@@ -144,6 +148,10 @@ export async function PATCH(
   context: RouteContext
 ) {
   try {
+    enforceStaffRequestOrigin(
+      request
+    );
+
     const authorization =
       await getRequestAuthorization(
         request
@@ -294,6 +302,21 @@ export async function PATCH(
       }
     );
   } catch (error) {
+    if (
+      error instanceof
+      StaffCrossSiteRequestError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     const response =
       handleAuthorizationError(
         error

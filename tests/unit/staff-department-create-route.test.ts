@@ -129,6 +129,29 @@ function createRequest(
   );
 }
 
+function createCrossSiteRequest(
+  body: unknown
+) {
+  return new Request(
+    "http://localhost/api/staff/departments",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type":
+          "application/json",
+        Origin:
+          "https://attacker.example.com",
+        "Sec-Fetch-Site":
+          "cross-site",
+      },
+      body:
+        JSON.stringify(
+          body
+        ),
+    }
+  );
+}
+
 describe(
   "staff department create route",
   () => {
@@ -263,6 +286,57 @@ describe(
       expect(
         body.department.id
       ).toBeUndefined();
+    });
+
+    it("rejects a cross-site request before authentication or department creation", async () => {
+      const {
+        POST,
+      } = await import(
+        "@/app/api/staff/departments/route"
+      );
+
+      const response =
+        await POST(
+          createCrossSiteRequest({
+            code: "INDUSTRY",
+            name:
+              "Industry Department",
+            description:
+              "Handles industry services.",
+          })
+        );
+
+      const body =
+        await response.json();
+
+      expect(
+        response.status
+      ).toBe(403);
+
+      expect(body).toEqual({
+        error:
+          "Cross-site request forbidden.",
+      });
+
+      expect(
+        getRequestAuthorization
+      ).not.toHaveBeenCalled();
+
+      expect(
+        requirePermission
+      ).not.toHaveBeenCalled();
+
+      expect(
+        withTransaction
+      ).not.toHaveBeenCalled();
+
+      expect(
+        createDepartment
+      ).not.toHaveBeenCalled();
+
+      expect(
+        writeAuditLog
+      ).not.toHaveBeenCalled();
     });
 
     it("returns 400 for invalid department data without starting a transaction", async () => {

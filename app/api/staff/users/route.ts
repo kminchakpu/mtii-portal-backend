@@ -12,6 +12,10 @@ import {
   handleAuthorizationError,
 } from "@/lib/http/authorization-error";
 import {
+  enforceStaffRequestOrigin,
+  StaffCrossSiteRequestError,
+} from "@/lib/http/staff-request-security";
+import {
   listStaffUsers,
   listStaffUsersByDepartment,
   type StaffUser,
@@ -125,6 +129,10 @@ export async function POST(
   request: Request
 ) {
   try {
+    enforceStaffRequestOrigin(
+      request
+    );
+
     const authorization =
       await getRequestAuthorization(
         request
@@ -186,6 +194,21 @@ export async function POST(
       }
     );
   } catch (error) {
+    if (
+      error instanceof
+      StaffCrossSiteRequestError
+    ) {
+      return NextResponse.json(
+        {
+          error:
+            error.message,
+        },
+        {
+          status: 403,
+        }
+      );
+    }
+
     const authorizationResponse =
       handleAuthorizationError(
         error
