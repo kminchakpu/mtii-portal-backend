@@ -22,7 +22,8 @@
     "db:verify:staff-auth": "tsx scripts/verify-staff-auth.ts",
     "db:verify:authorization": "tsx scripts/verify-authorization.ts",
     "db:verify:staff-login-rate-limits": "tsx scripts/verify-staff-login-rate-limits.ts",
-    "db:verify:staff-login-rate-limit-behavior": "tsx scripts/verify-staff-login-rate-limits-behavior.ts"
+    "db:verify:staff-login-rate-limit-behavior": "tsx scripts/verify-staff-login-rate-limits-behavior.ts",
+    "db:verify:applicant-auth-rate-limit-behavior": "tsx scripts/verify-applicant-auth-rate-limits-behavior.ts"
   },
   "dependencies": {
     "bcryptjs": "^3.0.3",

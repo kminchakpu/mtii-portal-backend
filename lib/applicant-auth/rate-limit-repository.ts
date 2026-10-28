@@ -119,7 +119,7 @@ export async function recordApplicantAuthRequest(
           CASE
             WHEN blocked_until > NOW()
               THEN blocked_until
-            WHEN request_count >= ?
+            WHEN request_count > ?
               THEN DATE_ADD(
                 NOW(),
                 INTERVAL ? MINUTE

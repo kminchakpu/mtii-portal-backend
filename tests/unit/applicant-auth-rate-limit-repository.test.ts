@@ -241,7 +241,7 @@ describe(
       );
     });
 
-    it("increments the request count before deciding whether to block", async () => {
+    it("allows exactly the configured maximum requests and blocks only the next request", async () => {
       execute.mockResolvedValueOnce([
         {
           affectedRows: 2,
@@ -289,6 +289,10 @@ describe(
       );
 
       expect(sql).toContain(
+        "request_count > ?"
+      );
+
+      expect(sql).not.toContain(
         "request_count >= ?"
       );
 
