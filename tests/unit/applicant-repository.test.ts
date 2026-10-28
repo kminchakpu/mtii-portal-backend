@@ -27,6 +27,7 @@ vi.mock(
 import {
   createApplicant,
   findApplicantByEmail,
+  markApplicantEmailVerified,
 } from "@/lib/applicant-auth/applicant-repository";
 
 const input = {
@@ -324,6 +325,102 @@ describe(
           "missing@example.com"
         )
       ).resolves.toBeNull();
+    });
+
+    it("marks an unverified applicant email as verified", async () => {
+      execute.mockResolvedValueOnce([
+        {
+          affectedRows: 1,
+        },
+      ]);
+
+      const verified =
+        await markApplicantEmailVerified(
+          31
+        );
+
+      expect(
+        execute
+      ).toHaveBeenCalledOnce();
+
+      const updateCall =
+        execute.mock.calls[0];
+
+      const sql =
+        updateCall[0] as string;
+
+      expect(sql).toContain(
+        "UPDATE applicants"
+      );
+
+      expect(sql).toContain(
+        "email_verified_at = NOW()"
+      );
+
+      expect(sql).toContain(
+        "WHERE id = ?"
+      );
+
+      expect(sql).toContain(
+        "email_verified_at IS NULL"
+      );
+
+      expect(
+        updateCall[1]
+      ).toEqual([
+        31,
+      ]);
+
+      expect(
+        verified
+      ).toBe(true);
+    });
+
+    it("returns false when the applicant email was already verified or the applicant does not exist", async () => {
+      execute.mockResolvedValueOnce([
+        {
+          affectedRows: 0,
+        },
+      ]);
+
+      await expect(
+        markApplicantEmailVerified(
+          31
+        )
+      ).resolves.toBe(false);
+    });
+
+    it("marks the applicant email verified using a supplied transaction executor", async () => {
+      const transactionExecute =
+        vi.fn()
+          .mockResolvedValueOnce([
+            {
+              affectedRows: 1,
+            },
+          ]);
+
+      const executor = {
+        execute:
+          transactionExecute,
+      };
+
+      const verified =
+        await markApplicantEmailVerified(
+          31,
+          executor
+        );
+
+      expect(
+        transactionExecute
+      ).toHaveBeenCalledOnce();
+
+      expect(
+        execute
+      ).not.toHaveBeenCalled();
+
+      expect(
+        verified
+      ).toBe(true);
     });
   }
 );

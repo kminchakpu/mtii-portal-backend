@@ -19,6 +19,12 @@ const mocks = vi.hoisted(() => ({
     vi.fn(),
   createApplicantVerification:
     vi.fn(),
+  findValidApplicantVerificationByTokenHashForUpdate:
+    vi.fn(),
+  consumeApplicantVerification:
+    vi.fn(),
+  markApplicantEmailVerified:
+    vi.fn(),
   withTransaction:
     vi.fn(),
 }));
@@ -50,6 +56,18 @@ vi.mock(
       mocks.invalidateApplicantVerifications,
     createApplicantVerification:
       mocks.createApplicantVerification,
+    findValidApplicantVerificationByTokenHashForUpdate:
+      mocks.findValidApplicantVerificationByTokenHashForUpdate,
+    consumeApplicantVerification:
+      mocks.consumeApplicantVerification,
+  })
+);
+
+vi.mock(
+  "@/lib/applicant-auth/applicant-repository",
+  () => ({
+    markApplicantEmailVerified:
+      mocks.markApplicantEmailVerified,
   })
 );
 
@@ -63,6 +81,7 @@ vi.mock(
 
 import {
   issueApplicantVerification,
+  verifyApplicantEmail,
 } from "@/lib/applicant-auth/verification-service";
 
 const rawToken =
@@ -74,6 +93,17 @@ const tokenHash =
 const expiresAt = new Date(
   "2026-10-29T10:00:00.000Z"
 );
+
+const verification = {
+  id: 41,
+  applicantId: 31,
+  tokenHash,
+  expiresAt,
+  consumedAt: null,
+  createdAt: new Date(
+    "2026-10-28T10:00:00.000Z"
+  ),
+};
 
 describe(
   "applicant verification issuance service",
@@ -373,6 +403,326 @@ describe(
       expect(
         mocks.createApplicantVerification
       ).toHaveBeenCalledOnce();
+    });
+  }
+);
+
+describe(
+  "applicant email verification consumption service",
+  () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+
+      mocks.hashApplicantVerificationToken
+        .mockReturnValue(
+          tokenHash
+        );
+
+      mocks.findValidApplicantVerificationByTokenHashForUpdate
+        .mockResolvedValue(
+          verification
+        );
+
+      mocks.markApplicantEmailVerified
+        .mockResolvedValue(
+          true
+        );
+
+      mocks.consumeApplicantVerification
+        .mockResolvedValue(
+          true
+        );
+
+      mocks.withTransaction
+        .mockImplementation(
+          async (
+            operation: (
+              connection: object
+            ) => Promise<unknown>
+          ) => {
+            return operation({
+              execute: vi.fn(),
+            });
+          }
+        );
+    });
+
+    it("hashes the raw verification token before database lookup", async () => {
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      expect(
+        mocks.hashApplicantVerificationToken
+      ).toHaveBeenCalledOnce();
+
+      expect(
+        mocks.hashApplicantVerificationToken
+      ).toHaveBeenCalledWith(
+        rawToken
+      );
+
+      expect(
+        mocks.findValidApplicantVerificationByTokenHashForUpdate
+      ).toHaveBeenCalledWith(
+        tokenHash,
+        expect.anything()
+      );
+    });
+
+    it("never sends the raw verification token to the repository", async () => {
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      const repositoryArguments =
+        JSON.stringify(
+          mocks.findValidApplicantVerificationByTokenHashForUpdate
+            .mock.calls
+        );
+
+      expect(
+        repositoryArguments
+      ).not.toContain(
+        rawToken
+      );
+
+      expect(
+        repositoryArguments
+      ).toContain(
+        tokenHash
+      );
+    });
+
+    it("locks the verification record using the transaction connection", async () => {
+      const connection = {
+        execute: vi.fn(),
+      };
+
+      mocks.withTransaction
+        .mockImplementation(
+          async (
+            operation: (
+              transactionConnection:
+                object
+            ) => Promise<unknown>
+          ) => {
+            return operation(
+              connection
+            );
+          }
+        );
+
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      expect(
+        mocks.findValidApplicantVerificationByTokenHashForUpdate
+      ).toHaveBeenCalledWith(
+        tokenHash,
+        connection
+      );
+    });
+
+    it("rejects an invalid, expired, or already consumed verification token", async () => {
+      mocks.findValidApplicantVerificationByTokenHashForUpdate
+        .mockResolvedValueOnce(
+          null
+        );
+
+      await expect(
+        verifyApplicantEmail(
+          rawToken
+        )
+      ).rejects.toThrow(
+        "Invalid or expired applicant verification token."
+      );
+
+      expect(
+        mocks.markApplicantEmailVerified
+      ).not.toHaveBeenCalled();
+
+      expect(
+        mocks.consumeApplicantVerification
+      ).not.toHaveBeenCalled();
+    });
+
+    it("marks the applicant email verified using the same transaction", async () => {
+      const connection = {
+        execute: vi.fn(),
+      };
+
+      mocks.withTransaction
+        .mockImplementation(
+          async (
+            operation: (
+              transactionConnection:
+                object
+            ) => Promise<unknown>
+          ) => {
+            return operation(
+              connection
+            );
+          }
+        );
+
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      expect(
+        mocks.markApplicantEmailVerified
+      ).toHaveBeenCalledWith(
+        31,
+        connection
+      );
+    });
+
+    it("consumes the verification token using the same transaction", async () => {
+      const connection = {
+        execute: vi.fn(),
+      };
+
+      mocks.withTransaction
+        .mockImplementation(
+          async (
+            operation: (
+              transactionConnection:
+                object
+            ) => Promise<unknown>
+          ) => {
+            return operation(
+              connection
+            );
+          }
+        );
+
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      expect(
+        mocks.consumeApplicantVerification
+      ).toHaveBeenCalledWith(
+        41,
+        connection
+      );
+    });
+
+    it("marks the applicant verified before consuming the token", async () => {
+      const callOrder: string[] =
+        [];
+
+      mocks.markApplicantEmailVerified
+        .mockImplementation(
+          async () => {
+            callOrder.push(
+              "verify-applicant"
+            );
+
+            return true;
+          }
+        );
+
+      mocks.consumeApplicantVerification
+        .mockImplementation(
+          async () => {
+            callOrder.push(
+              "consume-token"
+            );
+
+            return true;
+          }
+        );
+
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      expect(
+        callOrder
+      ).toEqual([
+        "verify-applicant",
+        "consume-token",
+      ]);
+    });
+
+    it("rejects verification when the applicant cannot be marked verified", async () => {
+      mocks.markApplicantEmailVerified
+        .mockResolvedValueOnce(
+          false
+        );
+
+      await expect(
+        verifyApplicantEmail(
+          rawToken
+        )
+      ).rejects.toThrow(
+        "Invalid or expired applicant verification token."
+      );
+
+      expect(
+        mocks.consumeApplicantVerification
+      ).not.toHaveBeenCalled();
+    });
+
+    it("rejects verification when the token cannot be consumed", async () => {
+      mocks.consumeApplicantVerification
+        .mockResolvedValueOnce(
+          false
+        );
+
+      await expect(
+        verifyApplicantEmail(
+          rawToken
+        )
+      ).rejects.toThrow(
+        "Invalid or expired applicant verification token."
+      );
+    });
+
+    it("performs verification operations inside one transaction", async () => {
+      await verifyApplicantEmail(
+        rawToken
+      );
+
+      expect(
+        mocks.withTransaction
+      ).toHaveBeenCalledOnce();
+
+      expect(
+        mocks.findValidApplicantVerificationByTokenHashForUpdate
+      ).toHaveBeenCalledOnce();
+
+      expect(
+        mocks.markApplicantEmailVerified
+      ).toHaveBeenCalledOnce();
+
+      expect(
+        mocks.consumeApplicantVerification
+      ).toHaveBeenCalledOnce();
+    });
+
+    it("propagates repository failures so the transaction can roll back", async () => {
+      mocks.markApplicantEmailVerified
+        .mockRejectedValueOnce(
+          new Error(
+            "Applicant update failed"
+          )
+        );
+
+      await expect(
+        verifyApplicantEmail(
+          rawToken
+        )
+      ).rejects.toThrow(
+        "Applicant update failed"
+      );
+
+      expect(
+        mocks.consumeApplicantVerification
+      ).not.toHaveBeenCalled();
     });
   }
 );

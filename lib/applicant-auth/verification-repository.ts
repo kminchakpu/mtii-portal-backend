@@ -120,6 +120,44 @@ export async function findValidApplicantVerificationByTokenHash(
   );
 }
 
+export async function findValidApplicantVerificationByTokenHashForUpdate(
+  tokenHash: string,
+  executor: VerificationExecutor
+): Promise<ApplicantVerification | null> {
+  const [rows] =
+    await executor.execute<
+      ApplicantVerificationRow[]
+    >(
+      `
+        SELECT
+          id,
+          applicant_id,
+          token_hash,
+          expires_at,
+          consumed_at,
+          created_at
+        FROM applicant_email_verifications
+        WHERE token_hash = ?
+          AND consumed_at IS NULL
+          AND expires_at > NOW()
+        LIMIT 1
+        FOR UPDATE
+      `,
+      [tokenHash]
+    );
+
+  const verification =
+    rows[0];
+
+  if (!verification) {
+    return null;
+  }
+
+  return mapApplicantVerification(
+    verification
+  );
+}
+
 export async function consumeApplicantVerification(
   verificationId: number,
   executor:

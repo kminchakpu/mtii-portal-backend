@@ -199,3 +199,26 @@ export async function createApplicant(
     );
   }
 }
+
+export async function markApplicantEmailVerified(
+  applicantId: number,
+  executor:
+    ApplicantExecutor = db
+): Promise<boolean> {
+  const [result] =
+    await executor.execute<
+      ResultSetHeader
+    >(
+      `
+        UPDATE applicants
+        SET email_verified_at = NOW()
+        WHERE id = ?
+          AND email_verified_at IS NULL
+      `,
+      [applicantId]
+    );
+
+  return (
+    result.affectedRows > 0
+  );
+}

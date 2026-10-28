@@ -1,9 +1,14 @@
 import {
+  markApplicantEmailVerified,
+} from "@/lib/applicant-auth/applicant-repository";
+import {
   getApplicantVerificationConfig,
   getApplicantVerificationExpiresAt,
 } from "@/lib/applicant-auth/verification-config";
 import {
+  consumeApplicantVerification,
   createApplicantVerification,
+  findValidApplicantVerificationByTokenHashForUpdate,
   invalidateApplicantVerifications,
 } from "@/lib/applicant-auth/verification-repository";
 import {
@@ -18,6 +23,9 @@ export type IssuedApplicantVerification = {
   token: string;
   expiresAt: Date;
 };
+
+const INVALID_VERIFICATION_MESSAGE =
+  "Invalid or expired applicant verification token.";
 
 export async function issueApplicantVerification(
   applicantId: number
@@ -63,4 +71,53 @@ export async function issueApplicantVerification(
     token,
     expiresAt,
   };
+}
+
+export async function verifyApplicantEmail(
+  token: string
+): Promise<void> {
+  const tokenHash =
+    hashApplicantVerificationToken(
+      token
+    );
+
+  await withTransaction(
+    async (connection) => {
+      const verification =
+        await findValidApplicantVerificationByTokenHashForUpdate(
+          tokenHash,
+          connection
+        );
+
+      if (!verification) {
+        throw new Error(
+          INVALID_VERIFICATION_MESSAGE
+        );
+      }
+
+      const applicantVerified =
+        await markApplicantEmailVerified(
+          verification.applicantId,
+          connection
+        );
+
+      if (!applicantVerified) {
+        throw new Error(
+          INVALID_VERIFICATION_MESSAGE
+        );
+      }
+
+      const verificationConsumed =
+        await consumeApplicantVerification(
+          verification.id,
+          connection
+        );
+
+      if (!verificationConsumed) {
+        throw new Error(
+          INVALID_VERIFICATION_MESSAGE
+        );
+      }
+    }
+  );
 }

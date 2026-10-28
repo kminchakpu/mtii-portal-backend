@@ -25,6 +25,7 @@ import {
   consumeApplicantVerification,
   createApplicantVerification,
   findValidApplicantVerificationByTokenHash,
+  findValidApplicantVerificationByTokenHashForUpdate,
   invalidateApplicantVerifications,
 } from "@/lib/applicant-auth/verification-repository";
 
@@ -190,6 +191,94 @@ describe(
       await expect(
         findValidApplicantVerificationByTokenHash(
           "b".repeat(64)
+        )
+      ).resolves.toBeNull();
+    });
+
+    it("locks a valid verification row for update using the supplied transaction executor", async () => {
+      const transactionExecute =
+        vi.fn()
+          .mockResolvedValueOnce([
+            [verificationRow],
+          ]);
+
+      const executor = {
+        execute:
+          transactionExecute,
+      };
+
+      const verification =
+        await findValidApplicantVerificationByTokenHashForUpdate(
+          "a".repeat(64),
+          executor
+        );
+
+      expect(
+        transactionExecute
+      ).toHaveBeenCalledOnce();
+
+      expect(
+        execute
+      ).not.toHaveBeenCalled();
+
+      const selectCall =
+        transactionExecute.mock.calls[0];
+
+      const sql =
+        selectCall[0] as string;
+
+      expect(sql).toContain(
+        "token_hash = ?"
+      );
+
+      expect(sql).toContain(
+        "consumed_at IS NULL"
+      );
+
+      expect(sql).toContain(
+        "expires_at > NOW()"
+      );
+
+      expect(sql).toContain(
+        "FOR UPDATE"
+      );
+
+      expect(
+        selectCall[1]
+      ).toEqual([
+        "a".repeat(64),
+      ]);
+
+      expect(
+        verification
+      ).toEqual({
+        id: 41,
+        applicantId: 31,
+        tokenHash:
+          "a".repeat(64),
+        expiresAt,
+        consumedAt: null,
+        createdAt:
+          verificationRow.created_at,
+      });
+    });
+
+    it("returns null when no valid verification can be locked", async () => {
+      const transactionExecute =
+        vi.fn()
+          .mockResolvedValueOnce([
+            [],
+          ]);
+
+      const executor = {
+        execute:
+          transactionExecute,
+      };
+
+      await expect(
+        findValidApplicantVerificationByTokenHashForUpdate(
+          "b".repeat(64),
+          executor
         )
       ).resolves.toBeNull();
     });
