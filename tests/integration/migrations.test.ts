@@ -43,6 +43,12 @@ async function getApplicantAuthRateLimitMigration() {
   );
 }
 
+async function getApplicantSessionsMigration() {
+  return getMigration(
+    "005_applicant_sessions.sql"
+  );
+}
+
 describe(
   "Phase 1 database migration",
   () => {
@@ -472,6 +478,132 @@ describe(
         sql
       ).toContain(
         "KEY idx_applicant_auth_rate_limits_updated_at (updated_at)"
+      );
+    });
+  }
+);
+
+describe(
+  "Task 15 applicant session migration",
+  () => {
+    it("creates applicant sessions separately from staff sessions", async () => {
+      const sql =
+        await getApplicantSessionsMigration();
+
+      expect(
+        sql
+      ).toContain(
+        "CREATE TABLE applicant_sessions"
+      );
+
+      expect(
+        sql
+      ).not.toContain(
+        "CREATE TABLE sessions"
+      );
+    });
+
+    it("links applicant sessions only to applicant accounts", async () => {
+      const sql =
+        await getApplicantSessionsMigration();
+
+      expect(
+        sql
+      ).toContain(
+        "applicant_id BIGINT UNSIGNED NOT NULL"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "FOREIGN KEY (applicant_id)"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "REFERENCES applicants(id)"
+      );
+
+      expect(
+        sql
+      ).not.toContain(
+        "REFERENCES users(id)"
+      );
+    });
+
+    it("stores only hashed opaque applicant session tokens", async () => {
+      const sql =
+        await getApplicantSessionsMigration();
+
+      expect(
+        sql
+      ).toContain(
+        "token_hash CHAR(64) NOT NULL"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "UNIQUE KEY uq_applicant_sessions_token_hash (token_hash)"
+      );
+
+      expect(
+        sql
+      ).not.toMatch(
+        /^\s*(?:raw_)?token\s+(?:VARCHAR|CHAR|TEXT)/im
+      );
+    });
+
+    it("tracks applicant session expiration and revocation", async () => {
+      const sql =
+        await getApplicantSessionsMigration();
+
+      expect(
+        sql
+      ).toContain(
+        "expires_at DATETIME NOT NULL"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "revoked_at DATETIME NULL"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"
+      );
+    });
+
+    it("provides indexes for applicant session lookup and lifecycle management", async () => {
+      const sql =
+        await getApplicantSessionsMigration();
+
+      expect(
+        sql
+      ).toContain(
+        "KEY idx_applicant_sessions_applicant_id (applicant_id)"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "KEY idx_applicant_sessions_expires_at (expires_at)"
+      );
+
+      expect(
+        sql
+      ).toContain(
+        "KEY idx_applicant_sessions_revoked_at (revoked_at)"
       );
     });
   }
