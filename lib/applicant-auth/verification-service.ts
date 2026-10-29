@@ -16,6 +16,9 @@ import {
   hashApplicantVerificationToken,
 } from "@/lib/applicant-auth/verification-token";
 import {
+  ApplicantVerificationError,
+} from "@/lib/applicant-auth/errors";
+import {
   withTransaction,
 } from "@/lib/db/transaction";
 
@@ -23,9 +26,6 @@ export type IssuedApplicantVerification = {
   token: string;
   expiresAt: Date;
 };
-
-const INVALID_VERIFICATION_MESSAGE =
-  "Invalid or expired applicant verification token.";
 
 export async function issueApplicantVerification(
   applicantId: number
@@ -90,9 +90,7 @@ export async function verifyApplicantEmail(
         );
 
       if (!verification) {
-        throw new Error(
-          INVALID_VERIFICATION_MESSAGE
-        );
+        throw new ApplicantVerificationError();
       }
 
       const applicantVerified =
@@ -102,9 +100,7 @@ export async function verifyApplicantEmail(
         );
 
       if (!applicantVerified) {
-        throw new Error(
-          INVALID_VERIFICATION_MESSAGE
-        );
+        throw new ApplicantVerificationError();
       }
 
       const verificationConsumed =
@@ -114,9 +110,7 @@ export async function verifyApplicantEmail(
         );
 
       if (!verificationConsumed) {
-        throw new Error(
-          INVALID_VERIFICATION_MESSAGE
-        );
+        throw new ApplicantVerificationError();
       }
     }
   );

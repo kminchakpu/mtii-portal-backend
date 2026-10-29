@@ -7,3 +7,13 @@ export class ApplicantEmailConflictError extends Error {
       "ApplicantEmailConflictError";
   }
 }
+
+export class ApplicantVerificationError extends Error {
+  constructor() {
+    super(
+      "Invalid or expired applicant verification token."
+    );
+    this.name =
+      "ApplicantVerificationError";
+  }
+}
