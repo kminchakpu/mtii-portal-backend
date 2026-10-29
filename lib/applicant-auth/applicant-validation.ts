@@ -58,6 +58,18 @@ export const resendApplicantVerificationSchema = z
   })
   .strict();
 
+export const applicantLoginSchema = z
+  .object({
+    email: emailSchema,
+    password: z
+      .string()
+      .min(
+        1,
+        "Password is required."
+      ),
+  })
+  .strict();
+
 export type RegisterApplicantInput =
   z.infer<
     typeof registerApplicantSchema
@@ -66,4 +78,9 @@ export type RegisterApplicantInput =
 export type ResendApplicantVerificationInput =
   z.infer<
     typeof resendApplicantVerificationSchema
+  >;
+
+export type ApplicantLoginInput =
+  z.infer<
+    typeof applicantLoginSchema
   >;
