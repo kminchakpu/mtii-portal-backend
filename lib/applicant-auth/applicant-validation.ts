@@ -52,7 +52,18 @@ export const registerApplicantSchema = z
   })
   .strict();
 
+export const resendApplicantVerificationSchema = z
+  .object({
+    email: emailSchema,
+  })
+  .strict();
+
 export type RegisterApplicantInput =
   z.infer<
     typeof registerApplicantSchema
+  >;
+
+export type ResendApplicantVerificationInput =
+  z.infer<
+    typeof resendApplicantVerificationSchema
   >;
