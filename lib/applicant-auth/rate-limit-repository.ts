@@ -9,7 +9,8 @@ import {
 
 export type ApplicantAuthRateLimitAction =
   | "registration"
-  | "resend_verification";
+  | "resend_verification"
+  | "login";
 
 interface ApplicantAuthRateLimitRow
   extends RowDataPacket {

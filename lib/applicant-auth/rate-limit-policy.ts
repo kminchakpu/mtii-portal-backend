@@ -1,6 +1,7 @@
 import type {
   ApplicantAuthRateLimitAction,
 } from "@/lib/applicant-auth/rate-limit-repository";
+
 import type {
   ApplicantAuthRateLimitPolicy,
 } from "@/lib/applicant-auth/rate-limit-service";
@@ -19,6 +20,13 @@ const RESEND_VERIFICATION_POLICY:
     blockDurationMinutes: 30,
   };
 
+const LOGIN_POLICY:
+  ApplicantAuthRateLimitPolicy = {
+    windowMinutes: 15,
+    maxRequests: 5,
+    blockDurationMinutes: 15,
+  };
+
 export function getApplicantAuthRateLimitPolicy(
   action:
     ApplicantAuthRateLimitAction
@@ -32,6 +40,11 @@ export function getApplicantAuthRateLimitPolicy(
     case "resend_verification":
       return {
         ...RESEND_VERIFICATION_POLICY,
+      };
+
+    case "login":
+      return {
+        ...LOGIN_POLICY,
       };
   }
 }

@@ -37,6 +37,19 @@ describe(
       });
     });
 
+    it("returns the applicant login rate-limit policy", () => {
+      const policy =
+        getApplicantAuthRateLimitPolicy(
+          "login"
+        );
+
+      expect(policy).toEqual({
+        windowMinutes: 15,
+        maxRequests: 5,
+        blockDurationMinutes: 15,
+      });
+    });
+
     it("returns a new policy object instead of exposing shared mutable state", () => {
       const firstPolicy =
         getApplicantAuthRateLimitPolicy(
@@ -87,10 +100,35 @@ describe(
       ).toBe(3);
     });
 
-    it("returns positive policy values", () => {
+    it("returns a new applicant login policy object on every call", () => {
+      const firstPolicy =
+        getApplicantAuthRateLimitPolicy(
+          "login"
+        );
+
+      const secondPolicy =
+        getApplicantAuthRateLimitPolicy(
+          "login"
+        );
+
+      expect(
+        firstPolicy
+      ).not.toBe(
+        secondPolicy
+      );
+
+      expect(
+        firstPolicy
+      ).toEqual(
+        secondPolicy
+      );
+    });
+
+    it("returns positive policy values for every applicant auth action", () => {
       const actions = [
         "registration",
         "resend_verification",
+        "login",
       ] as const;
 
       for (
